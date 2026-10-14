@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Data and generated artifacts
+data/
+models/
+outputs/
+*.dcm
+*.nii
+*.nii.gz
+*.npz
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Tooling
+.pytest_cache/
+.coverage
+.DS_Store
