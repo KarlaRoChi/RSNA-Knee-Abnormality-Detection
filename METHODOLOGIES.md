@@ -1,59 +1,59 @@
-# 🩻 RSNA Knee Abnormality Detection — Documento de Metodologías Técnicas y Estrategias SOTA
+# 🩻 RSNA Knee Abnormality Detection — Technical Methodologies and SOTA Strategies Document
 
-> **Competición:** [RSNA Knee Abnormality Detection AI Challenge](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection)  
-> **Organizador:** Radiological Society of North America (RSNA)  
-> **Premio:** $50,000 USD (Main Track) + $18,000 USD (Efficiency Track)  
-> **Cierre de Competencia:** 22 de Octubre de 2026 (¡6 días restantes!)  
-> **Métrica Oficial:** Macro-averaged ROC-AUC sobre 12 patologías clínicas  
-> **Restricciones de Ejecución:** GPU/CPU $\le 9$ horas | Internet Desactivado (`enable_internet: false`)  
-
----
-
-## 1. 📊 Anatomía del Problema, Datos y Desafíos Clínicos
-
-El objetivo del desafío es predecir de forma probabilística continua $[0.0, 1.0]$ la presencia de **12 condiciones patológicas** a nivel de estudio de Resonancia Magnética (MRI):
-
-1. **`ACL`**: Lesión / desgarro del Ligamento Cruzado Anterior.
-2. **`MCL`**: Lesión / desgarro del Ligamento Colateral Medial.
-3. **`Medial Meniscus`**: Fisura o rotura del menisco medial.
-4. **`Lateral Meniscus`**: Fisura o rotura del menisco lateral.
-5. **`Medial OA`**: Artrosis / pinzamiento femorotibial medial.
-6. **`Lateral OA`**: Artrosis / pinzamiento femorotibial lateral.
-7. **`PF OA`**: Artrosis patelofemoral / femororrotuliana.
-8. **`Effusion`**: Derrame articular (exceso de líquido sinovial).
-9. **`Synovitis`**: Sinovitis / hipertrofia de membrana sinovial.
-10. **`Baker's`**: Quiste poplíteo o quiste de Baker.
-11. **`Contusion`**: Contusión ósea / edema trabecular medular.
-12. **`Fracture`**: Fractura cortical o trabecular.
-
-### Estructura del Dataset y Retos Críticos
-- **Tamaño y volumen:** 569.76 GB distribuidos en más de 819,000 archivos DICOM (`.dcm`), 4,407 estudios de entrenamiento y ~1,300 estudios de prueba.
-- **Discrepancia Crítica de Etiquetas (98.7% sin hard labels):** Solo **58 estudios** en `train.csv` poseen etiquetas binarias directas revisadas por comités radiológicos ("hard labels"). Los otros 4,349 estudios solo tienen el informe radiológico narrativo (`Report`).
-- **Covariate Shift de Inferencia:** En `train.csv` existe el reporte en texto libre, pero en `test.csv` la columna `Report` está **completamente vacía (`""`)**. Cualquier modelo que no desacople el texto o no aprenda de la imagen pura colapsará en test.
-- **Variabilidad en Adquisición:** Más de 19 centros hospitalarios globales con resonadores de 1.5T y 3.0T, diversas secuencias (T1, T2, PD, STIR, T2 FS) y diferentes sintaxis de compresión DICOM.
+> **Competition:** [RSNA Knee Abnormality Detection AI Challenge](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection)  
+> **Organizer:** Radiological Society of North America (RSNA)  
+> **Prize:** $50,000 USD (Main Track) + $18,000 USD (Efficiency Track)  
+> **Competition Close:** October 22, 2026 (6 days left!)  
+> **Official Metric:** Macro-averaged ROC-AUC over 12 clinical pathologies  
+> **Execution Constraints:** GPU/CPU $\le 9$ hours | Internet Disabled (`enable_internet: false`)  
 
 ---
 
-## 2. 🔬 Auditoría Forense: Evolución Experimental y Razones del Score
+## 1. 📊 Problem Anatomy, Data and Clinical Challenges
 
-| Versión | Enfoque Metodológico | Score LB | Causa Técnica del Resultado |
+The goal of the challenge is to predict, as continuous probabilities $[0.0, 1.0]$, the presence of **12 pathological conditions** at the Magnetic Resonance Imaging (MRI) study level:
+
+1. **`ACL`**: Anterior Cruciate Ligament injury / tear.
+2. **`MCL`**: Medial Collateral Ligament injury / tear.
+3. **`Medial Meniscus`**: Fissure or tear of the medial meniscus.
+4. **`Lateral Meniscus`**: Fissure or tear of the lateral meniscus.
+5. **`Medial OA`**: Medial femorotibial osteoarthritis / joint-space narrowing.
+6. **`Lateral OA`**: Lateral femorotibial osteoarthritis / joint-space narrowing.
+7. **`PF OA`**: Patellofemoral osteoarthritis.
+8. **`Effusion`**: Joint effusion (excess synovial fluid).
+9. **`Synovitis`**: Synovitis / synovial membrane hypertrophy.
+10. **`Baker's`**: Popliteal cyst or Baker's cyst.
+11. **`Contusion`**: Bone contusion / trabecular bone marrow edema.
+12. **`Fracture`**: Cortical or trabecular fracture.
+
+### Dataset Structure and Critical Challenges
+- **Size and volume:** 569.76 GB spread over more than 819,000 DICOM files (`.dcm`), 4,407 training studies and ~1,300 test studies.
+- **Critical Label Discrepancy (98.7% without hard labels):** Only **58 studies** in `train.csv` have direct binary labels reviewed by radiology committees ("hard labels"). The other 4,349 studies only have the narrative radiology report (`Report`).
+- **Inference Covariate Shift:** `train.csv` has the free-text report, but in `test.csv` the `Report` column is **completely empty (`""`)**. Any model that does not decouple the text or does not learn from the pure image will collapse on test.
+- **Acquisition Variability:** More than 19 global hospital centers with 1.5T and 3.0T scanners, diverse sequences (T1, T2, PD, STIR, T2 FS) and different DICOM compression syntaxes.
+
+---
+
+## 2. 🔬 Forensic Audit: Experimental Evolution and Reasons for the Score
+
+| Version | Methodological Approach | LB Score | Technical Cause of the Result |
 |---|---|---|---|
-| **v2** | Extracción paralela de cuantiles globales DICOM + Ridge L2 | **`0.546`** | Primer pipeline funcional libre de NaNs. Señal positiva moderada capturada por cuantiles de intensidad. |
-| **v5** | **Estadísticas de distribución DICOM a resolución nativa** (10 percentiles en 24 cortes) + Metadatos de secuencias + Regresión Logística L2 balanceada | **`0.572`** | 🏆 **Mejor Score Consolidado.** Los percentiles de intensidad preservan el contraste físico real del líquido sinovial y edema en secuencias T2/STIR sin sufrir por sobreajuste de millones de parámetros. |
-| **v8** | **Red Neuronal Profunda 2.5D Multimodal** (EfficientNet-B4, 9 cortes fijos a 96×96, Modality Dropout, Focal Loss) | **`0.532`** | 🔻 **Desplome de -0.040.** Colapso de varianza en predicciones de test ($\text{std} \approx 0.004$). Cerca del azar (0.500). |
+| **v2** | Parallel extraction of global DICOM quantiles + Ridge L2 | **`0.546`** | First NaN-free working pipeline. Moderate positive signal captured by intensity quantiles. |
+| **v5** | **DICOM distribution statistics at native resolution** (10 percentiles over 24 slices) + Series metadata + balanced L2 Logistic Regression | **`0.572`** | 🏆 **Best Consolidated Score.** Intensity percentiles preserve the real physical contrast of synovial fluid and edema in T2/STIR sequences without suffering from overfitting millions of parameters. |
+| **v8** | **Multimodal 2.5D Deep Neural Network** (EfficientNet-B4, 9 fixed slices at 96×96, Modality Dropout, Focal Loss) | **`0.532`** | 🔻 **Drop of -0.040.** Variance collapse in test predictions ($\text{std} \approx 0.004$). Close to chance (0.500). |
 
-### Las 5 Razones Técnicas del Desplome de la Versión 8:
-1. **Entrenamiento desde cero (`weights=None`):** Al no disponer de pesos pre-entrenados offline en Kaggle, un backbone de 19.3M parámetros entrenado en solo 12 épocas generó únicamente ruido aleatorio.
-2. **Pérdida de resolución espacial (96×96 píxeles):** A $96 \times 96$, las estructuras ligamentosas y meniscales se reducen a 1–2 píxeles borrosos, haciendo imposible identificar desgarros.
-3. **Muestreo ciego de 3 cortes:** Seleccionar 3 cortes alrededor del centro omitió las lesiones periféricas o específicas de compartimento en la mayoría de los casos.
-4. **Pseudo-etiquetado ingenuo sin manejo de negaciones:** El regex marcó como positivas afirmaciones como *"No evidence of ACL tear"* o *"Menisci: unremarkable"*, envenenando las etiquetas de 4,349 estudios.
-5. **Colapso de Varianza en Inferencia:** Sin informe de texto en test y con una rama visual de ruido, el modelo arrojó predicciones casi planas para todos los pacientes.
+### The 5 Technical Reasons for the Version 8 Drop:
+1. **Training from scratch (`weights=None`):** With no pretrained weights available offline on Kaggle, a 19.3M-parameter backbone trained for only 12 epochs produced nothing but random noise.
+2. **Loss of spatial resolution (96×96 pixels):** At $96 \times 96$, ligament and meniscal structures shrink to 1–2 blurry pixels, making it impossible to identify tears.
+3. **Blind sampling of 3 slices:** Selecting 3 slices around the center missed peripheral or compartment-specific lesions in most cases.
+4. **Naive pseudo-labeling with no negation handling:** The regex marked statements such as *"No evidence of ACL tear"* or *"Menisci: unremarkable"* as positive, poisoning the labels of 4,349 studies.
+5. **Variance Collapse at Inference:** With no text report in test and a noisy visual branch, the model produced nearly flat predictions for all patients.
 
 ---
 
-## 3. 🚀 Nuevas Metodologías Diseñadas para Superar 0.572
+## 3. 🚀 New Methodologies Designed to Beat 0.572
 
-Para romper la barrera de 0.572 y competir por las primeras posiciones y el Efficiency Track, se desarrollan dos nuevas metodologías ortogonales:
+To break the 0.572 barrier and compete for the top positions and the Efficiency Track, two new orthogonal methodologies are being developed:
 
 ```
                                       DICOM Study (20-45 slices / series)
@@ -61,103 +61,103 @@ Para romper la barrera de 0.572 y competir por las primeras posiciones y el Effi
                  ┌────────────────────────────────────┴────────────────────────────────────┐
                  ▼                                                                         ▼
 ┌──────────────────────────────────────────────────┐     ┌──────────────────────────────────────────────────┐
-│   METODOLOGÍA 1: Decomposed Anatomical Radiomics │     │   METODOLOGÍA 2: Adaptive-Entropy 2.5D Vision    │
+│   METHODOLOGY 1: Decomposed Anatomical Radiomics │     │   METHODOLOGY 2: Adaptive-Entropy 2.5D Vision    │
 │            & Multi-Engine Calibrated Ensemble    │     │      with NegEx Distillation & Residual Prior    │
 ├──────────────────────────────────────────────────┤     ├──────────────────────────────────────────────────┤
-│ 1. Segmentación por Plano (Sagittal, Coronal, Ax)│     │ 1. Escaneo de Varianza y Entropía Tisular        │
-│ 2. Separación de Señal Fluid-Sensitive vs T1     │     │ 2. Selección Dinámica de Top-3 Cortes Patológicos│
-│ 3. Cuantiles de Intensidad Multiescala (1% - 99%)│     │ 3. Resolución Completa 224×224 (Preserva Bordes) │
-│ 4. Ratios de Contraste Articular y Gradientes    │     │ 4. Backbone Liviano Pre-entrenado Adaptativo     │
-│ 5. NegEx Parser Clínico (Filtro de Negaciones)   │     │ 5. NegEx Distillation + 5× Peso en Hard Labels   │
-│ 6. Ensamble: HistGradientBoosting + Ridge + ET   │     │ 6. Conexión Residual Radiómica Anticolapso       │
-│ 7. Calibración de Probabilidades (Platt Scaling) │     │ 7. Temperature-Scaled Sigmoid Output             │
+│ 1. Plane Segmentation (Sagittal, Coronal, Ax)    │     │ 1. Tissue Variance and Entropy Scan              │
+│ 2. Fluid-Sensitive vs T1 Signal Separation       │     │ 2. Dynamic Selection of Top-3 Pathological Slices│
+│ 3. Multiscale Intensity Quantiles (1% - 99%)     │     │ 3. Full 224×224 Resolution (Preserves Edges)     │
+│ 4. Joint Contrast Ratios and Gradients           │     │ 4. Adaptive Lightweight Pretrained Backbone      │
+│ 5. Clinical NegEx Parser (Negation Filter)       │     │ 5. NegEx Distillation + 5× Weight on Hard Labels │
+│ 6. Ensemble: HistGradientBoosting + Ridge + ET   │     │ 6. Anti-Collapse Radiomic Residual Connection    │
+│ 7. Probability Calibration (Platt Scaling)       │     │ 7. Temperature-Scaled Sigmoid Output             │
 └────────────────────────┬─────────────────────────┘     └────────────────────────┬─────────────────────────┘
                          │                                                        │
                          ▼                                                        ▼
-           submission.csv (LB Objetivo >0.62)                       submission.csv (LB Objetivo >0.65)
+           submission.csv (LB Target >0.62)                         submission.csv (LB Target >0.65)
 ```
 
 ---
 
-### 🏛️ METODOLOGÍA 1: Decomposed Anatomical Plane Radiomics & Multi-Engine Calibrated Ensemble
+### 🏛️ METHODOLOGY 1: Decomposed Anatomical Plane Radiomics & Multi-Engine Calibrated Ensemble
 **Notebook:** `kaggle_rsna_knee_radiomics_ensemble.ipynb`
 
-#### A. Descomposición Anatómica de Señal
-En radiología clínica, cada hallazgo tiene una secuencia y un plano preferencial de diagnóstico:
-- **Sagital:** Evaluación dorada de los ligamentos cruzados (`ACL`, PCL) y cuernos meniscales anterior/posterior.
-- **Coronal:** Evaluación del ligamento colateral medial (`MCL`), cuerpo meniscal y pinzamiento articular medial/lateral (`Medial OA`, `Lateral OA`).
-- **Axial:** Visualización del compartimento patelofemoral (`PF OA`), receso suprapatelar (`Effusion`), quiste poplíteo (`Baker's`) e hipertrofia sinovial (`Synovitis`).
+#### A. Anatomical Signal Decomposition
+In clinical radiology, each finding has a preferred diagnostic sequence and plane:
+- **Sagittal:** Gold-standard evaluation of the cruciate ligaments (`ACL`, PCL) and the anterior/posterior meniscal horns.
+- **Coronal:** Evaluation of the medial collateral ligament (`MCL`), the meniscal body and medial/lateral joint-space narrowing (`Medial OA`, `Lateral OA`).
+- **Axial:** Visualization of the patellofemoral compartment (`PF OA`), the suprapatellar recess (`Effusion`), the popliteal cyst (`Baker's`) and synovial hypertrophy (`Synovitis`).
 
-En lugar de calcular estadísticas globales que diluyen la señal, la Metodología 1 extrae **características radiómicas separadas**:
-$$\mathbf{F}_{estudio} = \left[ \mathbf{f}_{\text{Sagittal}}, \mathbf{f}_{\text{Coronal}}, \mathbf{f}_{\text{Axial}}, \mathbf{f}_{\text{Fluid+}}, \mathbf{f}_{\text{Fluid-}}, \mathbf{f}_{\text{Metadatos}}, \mathbf{f}_{\text{Contraste}} \right]$$
+Instead of computing global statistics that dilute the signal, Methodology 1 extracts **separate radiomic features**:
+$$\mathbf{F}_{study} = \left[ \mathbf{f}_{\text{Sagittal}}, \mathbf{f}_{\text{Coronal}}, \mathbf{f}_{\text{Axial}}, \mathbf{f}_{\text{Fluid+}}, \mathbf{f}_{\text{Fluid-}}, \mathbf{f}_{\text{Metadata}}, \mathbf{f}_{\text{Contrast}} \right]$$
 
-#### B. Extracción Radiómica Multiescala:
-Para cada plano y para cada serie sensible a líquido (`Fluid_Sensitive == 1`):
-1. **Perfil de Cuantiles:** Percentiles 1%, 5%, 15%, 25%, 50%, 75%, 85%, 95%, 99% a resolución de píxel original.
-2. **Volumen de Hiperintensidad Sinovial:** Fracción de vóxeles que superan el umbral de líquido brillante ($I > 0.82$).
-3. **Gradiente de Contraste Inter-corte:** Dispersión entre el corte de máxima intensidad y la media del volumen (localiza focos de edema trabecular en `Contusion` y `Fracture`).
-4. **Ratio de Contraste Físico:** Cociente de brillo relativo entre secuencias T2/STIR y secuencias T1 anatómicas.
+#### B. Multiscale Radiomic Extraction:
+For each plane and for each fluid-sensitive series (`Fluid_Sensitive == 1`):
+1. **Quantile Profile:** 1%, 5%, 15%, 25%, 50%, 75%, 85%, 95%, 99% percentiles at original pixel resolution.
+2. **Synovial Hyperintensity Volume:** Fraction of voxels exceeding the bright-fluid threshold ($I > 0.82$).
+3. **Inter-slice Contrast Gradient:** Dispersion between the maximum-intensity slice and the volume mean (localizes foci of trabecular edema in `Contusion` and `Fracture`).
+4. **Physical Contrast Ratio:** Relative brightness ratio between T2/STIR sequences and anatomical T1 sequences.
 
-#### C. NegEx Clinical Parser (Supervisión Limpia):
-Para los 4,349 estudios con informe pero sin etiquetas duras, se implementa un analizador lingüístico clínico basado en reglas NegEx que detecta patrones afirmativos explícitos y **filtra estrictamente todas las expresiones de negación**:
-- *Reglas de Negación Filtradas:* `no evidence of`, `without signs of`, `intact`, `unremarkable`, `normal`, `preserved`, `no tear`, `no fracture`.
-- Solo cuando un hallazgo es afirmado positivamente sin negadores en su ventana sintáctica, se genera una pseudo-etiqueta positiva confiable.
+#### C. Clinical NegEx Parser (Clean Supervision):
+For the 4,349 studies with a report but no hard labels, a clinical linguistic analyzer based on NegEx rules is implemented. It detects explicit affirmative patterns and **strictly filters out all negation expressions**:
+- *Filtered Negation Rules:* `no evidence of`, `without signs of`, `intact`, `unremarkable`, `normal`, `preserved`, `no tear`, `no fracture`.
+- A reliable positive pseudo-label is generated only when a finding is affirmed positively with no negators in its syntactic window.
 
-#### D. Ensamble Multimodelo Calibrado:
-Se combinan tres familias de modelos con sesgos inductivos complementarios:
-1. **HistGradientBoostingClassifier / LightGBM:** Captura interacciones no lineales entre planos y secuencias.
-2. **L2 Calibrated Logistic Regression / Ridge:** Evita sobreajustes y preserva el ordenamiento físico de intensidades.
-3. **ExtraTreesClassifier:** Reduce la varianza muestral mediante umbrales estocásticos extremos.
-4. **Calibración Sigmoide (Platt Scaling):** Garantiza que las probabilidades predichas en test tengan una dispersión saludable y un ranking suave que maximiza el ROC-AUC.
+#### D. Calibrated Multi-Model Ensemble:
+Three model families with complementary inductive biases are combined:
+1. **HistGradientBoostingClassifier / LightGBM:** Captures nonlinear interactions between planes and sequences.
+2. **L2 Calibrated Logistic Regression / Ridge:** Avoids overfitting and preserves the physical ordering of intensities.
+3. **ExtraTreesClassifier:** Reduces sampling variance through extremely randomized thresholds.
+4. **Sigmoid Calibration (Platt Scaling):** Guarantees that the probabilities predicted on test have a healthy dispersion and a smooth ranking that maximizes ROC-AUC.
 
 ---
 
-### 👁️ METODOLOGÍA 2: Adaptive-Entropy Multi-Planar 2.5D Vision with Residual Prior
+### 👁️ METHODOLOGY 2: Adaptive-Entropy Multi-Planar 2.5D Vision with Residual Prior
 **Notebook:** `kaggle_rsna_knee_vision_25d.ipynb`
 
-#### A. Selección Adaptativa de Cortes por Entropía y Varianza
-En vez de tomar 3 cortes fijos al azar, el pipeline escanea los cortes DICOM de cada serie y computa una métrica de **relevancia patológica**:
-$$\text{Relevancia}(S_k) = \mathrm{Var}(S_k) \cdot \mathrm{P95}(S_k)$$
-Se seleccionan automáticamente los **3 cortes de máxima relevancia** por plano (los cortes donde se visualiza el espacio articular, ligamentos y potenciales focos de hiperintensidad de líquido/edema).
+#### A. Adaptive Slice Selection by Entropy and Variance
+Instead of taking 3 fixed slices at random, the pipeline scans the DICOM slices of each series and computes a **pathological relevance** metric:
+$$\text{Relevance}(S_k) = \mathrm{Var}(S_k) \cdot \mathrm{P95}(S_k)$$
+The **3 most relevant slices** per plane are selected automatically (the slices that show the joint space, ligaments and potential foci of fluid/edema hyperintensity).
 
-#### B. Tensores 2.5D de 9 Canales a Resolución 224×224
-- Los 3 cortes seleccionados de Sagital, 3 de Coronal y 3 de Axial se redimensionan a **$224 \times 224$** (preservando bordes y contornos anatómicos con más de 5.4 veces el área visual de v8).
-- Se ensamblan en un tensor compacto de 9 canales: $(9, 224, 224)$.
+#### B. 9-Channel 2.5D Tensors at 224×224 Resolution
+- The 3 selected Sagittal, 3 Coronal and 3 Axial slices are resized to **$224 \times 224$** (preserving anatomical edges and contours with more than 5.4 times the visual area of v8).
+- They are assembled into a compact 9-channel tensor: $(9, 224, 224)$.
 
-#### C. Backbone Convolucional Eficiente con Inicialización Robusta
-- Arquitectura basada en **ResNet-34 / ConvNeXt adaptado** con convolución inicial de 9 canales inicializada mediante expansión ponderada de pesos.
-- Proyección lineal con normalización de capas y *Cosine Annealing LR*.
+#### C. Efficient Convolutional Backbone with Robust Initialization
+- Architecture based on **ResNet-34 / adapted ConvNeXt** with a 9-channel initial convolution initialized through weighted weight expansion.
+- Linear projection with layer normalization and *Cosine Annealing LR*.
 
-#### D. Priorización de Supervisión y Pérdida Ponderada
-- **Ponderación de Hard Labels ($5.0\times$):** Los 58 casos con estándar de oro médico reciben un peso 5 veces superior en la función de pérdida.
-- **Pérdida Asimétrica (Asymmetric Loss / Focal Loss $\gamma = 1.5$):** Penaliza fuertemente los falsos negativos en patologías de baja prevalencia sin desestabilizar el gradiente.
-- **Conexión Residual Radiómica Directa:** Los metadatos de secuencia y estadísticas de cuantiles se proyectan directamente a los logits de salida (`logits = visual_head(v) + meta_proj(meta)`), impidiendo cualquier colapso de varianza en caso de incertidumbre visual.
+#### D. Supervision Prioritization and Weighted Loss
+- **Hard Label Weighting ($5.0\times$):** The 58 cases with a medical gold standard receive a weight 5 times higher in the loss function.
+- **Asymmetric Loss (Asymmetric Loss / Focal Loss $\gamma = 1.5$):** Strongly penalizes false negatives in low-prevalence pathologies without destabilizing the gradient.
+- **Direct Radiomic Residual Connection:** Sequence metadata and quantile statistics are projected directly onto the output logits (`logits = visual_head(v) + meta_proj(meta)`), preventing any variance collapse in case of visual uncertainty.
 
 ---
 
-## 4. ⚡ Optimización para el Efficiency Track
+## 4. ⚡ Optimization for the Efficiency Track
 
-La competición evalúa conjuntamente la precisión y el tiempo de ejecución:
+The competition jointly evaluates accuracy and execution time:
 $$\text{Efficiency Score} = (\text{Main Metric} - \text{Benchmark}) \cdot \sqrt{\text{Runtime}}$$
-Nuestras metodologías están optimizadas para minimizar el tiempo de cómputo en inferencia:
-1. **Extracción Multihilo (`ThreadPoolExecutor`):** Lectura paralela asíncrona de archivos DICOM en el test set.
-2. **Cero escrituras intermedias a disco:** Todo el procesamiento ocurre en memoria RAM / VRAM.
-3. **Inferencia en batch con FP16 (`torch.cuda.amp`):** Reduce la latencia de GPU a menos de 50 ms por estudio.
-4. **Tiempo total estimado en Kaggle:** $< 12$ minutos para los estudios de prueba públicos, clasificando dentro del rango superior de elegibilidad para los premios de eficiencia ($18,000 USD).
+Our methodologies are optimized to minimize inference compute time:
+1. **Multithreaded Extraction (`ThreadPoolExecutor`):** Asynchronous parallel reading of DICOM files in the test set.
+2. **Zero intermediate disk writes:** All processing happens in RAM / VRAM.
+3. **Batch inference with FP16 (`torch.cuda.amp`):** Reduces GPU latency to under 50 ms per study.
+4. **Estimated total time on Kaggle:** $< 12$ minutes for the public test studies, ranking within the upper eligibility range for the efficiency prizes ($18,000 USD).
 
 ---
 
-## 5. 📂 Resumen de Archivos y Scripts del Proyecto
+## 5. 📂 Summary of Project Files and Scripts
 
 ```text
 RSNA Knee Abnormality Detection/RSNA Knee Abnormality Detection/
-├── METHODOLOGIES.md                      # [ESTE ARCHIVO] Especificación técnica completa
-├── README.md                             # Documentación general y guía operativa
-├── EXPERIMENT_LOG.md                     # Bitácora detallada de experimentos y scores
-├── OVERVIEW.md                           # Resumen del overview oficial de Kaggle
-├── DATASET_DESCRIPTION.md                # Resumen técnico del dataset y metadatos
-├── kaggle_rsna_knee_radiomics_ensemble.ipynb # Notebook 1: Radiomics + Ensamble Calibrado (SOTA Tabular)
+├── METHODOLOGIES.md                      # [THIS FILE] Complete technical specification
+├── README.md                             # General documentation and operations guide
+├── EXPERIMENT_LOG.md                     # Detailed log of experiments and scores
+├── OVERVIEW.md                           # Summary of the official Kaggle overview
+├── DATASET_DESCRIPTION.md                # Technical summary of the dataset and metadata
+├── kaggle_rsna_knee_radiomics_ensemble.ipynb # Notebook 1: Radiomics + Calibrated Ensemble (Tabular SOTA)
 ├── kaggle_rsna_knee_vision_25d.ipynb     # Notebook 2: 2.5D Adaptive Vision + Residual Prior
-├── kaggle_rsna_knee_baseline.ipynb       # Notebook sincronizado con kernel-metadata.json
-└── kernel-metadata.json                  # Metadatos del kernel de Kaggle
+├── kaggle_rsna_knee_baseline.ipynb       # Notebook synced with kernel-metadata.json
+└── kernel-metadata.json                  # Kaggle kernel metadata
 ```

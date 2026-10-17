@@ -1,38 +1,38 @@
 # 🩻 RSNA Knee Abnormality Detection — Multi-Planar Radiomics & 2.5D Vision
 
-> **Competencia Kaggle:** [RSNA Knee Abnormality Detection AI Challenge](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection)  
-> **Organizador:** Radiological Society of North America (RSNA)  
-> **Premios:** $50,000 USD (Main Leaderboard) + $18,000 USD (Efficiency Track)  
-> **Fecha de Cierre:** 22 de Octubre de 2026 (¡6 días restantes!)  
-> **Métrica Oficial:** Macro-averaged ROC-AUC sobre 12 anormalidades patológicas  
-> **Hardware:** GPU T4x2 (1 slot) o CPU | Internet: Desactivado  
+> **Kaggle Competition:** [RSNA Knee Abnormality Detection AI Challenge](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection)  
+> **Organizer:** Radiological Society of North America (RSNA)  
+> **Prizes:** $50,000 USD (Main Leaderboard) + $18,000 USD (Efficiency Track)  
+> **Closing Date:** October 22, 2026 (6 days left!)  
+> **Official Metric:** Macro-averaged ROC-AUC over 12 pathological abnormalities  
+> **Hardware:** T4x2 GPU (1 slot) or CPU | Internet: Disabled  
 
 ---
 
-## 📈 Evolución Experimental, Estrategias y Scores
+## 📈 Experimental Evolution, Strategies and Scores
 
-| Versión | Estrategia / Metodología Clave | Score LB | Causa Técnica del Resultado |
+| Version | Key Strategy / Methodology | LB Score | Technical Cause of the Result |
 |---|---|---|---|
-| **v2** | Extracción paralela ThreadPoolExecutor + cuantiles globales DICOM + Ridge L2 | **`0.546`** | Primer pipeline funcional libre de NaNs. Señal positiva moderada capturada por cuantiles de intensidad. |
-| **v5** | **Estadísticas de distribución DICOM a resolución nativa** (10 percentiles en 24 cortes) + Metadatos de secuencias + Regresión Logística L2 | **`0.572`** | 🏆 **Mejor Score Consolidado.** Los cuantiles de intensidad física en secuencias T2/STIR capturan edema y derrame sin sobreajuste de millones de parámetros. |
-| **v8** | **Red Neuronal Profunda 2.5D Multimodal** (EfficientNet-B4, 9 cortes fijos a 96×96, Modality Dropout, Focal Loss) | **`0.532`** | 🔻 **Desplome de -0.040.** Backbone sin pre-entrenamiento (`weights=None`), compresión destructiva (96×96), muestreo ciego de 3 cortes y pseudo-etiquetado con negaciones falsas. |
-| **v9 (Nueva)** | **Decomposed Anatomical Plane Radiomics & Multi-Engine Calibrated Ensemble** | **Objetivo >0.62** | 🚀 Descomposición de percentiles por plano (Sagital, Coronal, Axial), ratios de contraste líquido/grasa, NegEx clinical negation parser y ensamble GBCD + Ridge + ExtraTrees calibrado. |
-| **v10 (Nueva)**| **Adaptive-Entropy Multi-Planar 2.5D Vision with Residual Prior** | **Objetivo >0.65** | 🚀 Selección dinámica de cortes por varianza tisular, resolución completa 224×224, ponderación 5× en hard labels y conexión residual radiómica anticolapso. |
+| **v2** | Parallel ThreadPoolExecutor extraction + global DICOM quantiles + Ridge L2 | **`0.546`** | First NaN-free working pipeline. Moderate positive signal captured by intensity quantiles. |
+| **v5** | **DICOM distribution statistics at native resolution** (10 percentiles over 24 slices) + Series metadata + L2 Logistic Regression | **`0.572`** | 🏆 **Best Consolidated Score.** Physical intensity quantiles in T2/STIR sequences capture edema and effusion without overfitting millions of parameters. |
+| **v8** | **Multimodal 2.5D Deep Neural Network** (EfficientNet-B4, 9 fixed slices at 96×96, Modality Dropout, Focal Loss) | **`0.532`** | 🔻 **Drop of -0.040.** Backbone without pretraining (`weights=None`), destructive compression (96×96), blind sampling of 3 slices and pseudo-labeling with false negations. |
+| **v9 (New)** | **Decomposed Anatomical Plane Radiomics & Multi-Engine Calibrated Ensemble** | **Target >0.62** | 🚀 Per-plane percentile decomposition (Sagittal, Coronal, Axial), fluid/fat contrast ratios, NegEx clinical negation parser and calibrated GBCD + Ridge + ExtraTrees ensemble. |
+| **v10 (New)**| **Adaptive-Entropy Multi-Planar 2.5D Vision with Residual Prior** | **Target >0.65** | 🚀 Dynamic slice selection by tissue variance, full 224×224 resolution, 5× weighting on hard labels and anti-collapse radiomic residual connection. |
 
 ---
 
-## 🔬 Diagnóstico Clínico y Radiológico: Por qué la v8 cayó a 0.532
+## 🔬 Clinical and Radiological Diagnosis: Why v8 Dropped to 0.532
 
-Al auditar los archivos descargados del kernel de Kaggle (`submission.csv` y logs de la v8):
-1. **Colapso de Varianza:** En test, las probabilidades predichas para cada paciente resultaron casi constantes (e.g. `MCL` con media $0.423$ y desviación estándar de apenas $\pm 0.004$). En la métrica ROC-AUC, la ausencia de dispersión relativa colapsa el score a **~0.50** (azar puro).
-2. **Backbone sin pre-entrenar (`weights=None`):** Entrenar 19.3M parámetros desde cero en solo 12 épocas genera representaciones visuales que equivalen a ruido aleatorio no convergido.
-3. **Pérdida Crítica de Resolución (96×96):** Las resonancias nativas ($512 \times 512$) reducidas a 96×96 pierden el detalle de ligamentos y meniscos (reducidos a 1 o 2 píxeles borrosos).
-4. **Muestreo Ciego de Cortes:** Tomar 3 cortes fijos al centro ignora que las lesiones ocurren en cortes específicos según el compartimento medial, lateral o patelofemoral.
-5. **Pseudo-etiquetas contaminadas:** En `train.csv` solo 58 estudios tienen hard labels (98.7% sin etiquetas). Las expresiones regulares ingenuas marcaron frases como *"no tear"* o *"unremarkable"* como positivas ($0.70$), inyectando ruido masivo.
+When auditing the files downloaded from the Kaggle kernel (`submission.csv` and v8 logs):
+1. **Variance Collapse:** On test, the predicted probabilities for each patient were nearly constant (e.g. `MCL` with mean $0.423$ and a standard deviation of only $\pm 0.004$). In the ROC-AUC metric, the absence of relative dispersion collapses the score to **~0.50** (pure chance).
+2. **Backbone without pretraining (`weights=None`):** Training 19.3M parameters from scratch in only 12 epochs yields visual representations equivalent to unconverged random noise.
+3. **Critical Loss of Resolution (96×96):** Native MRI scans ($512 \times 512$) downsampled to 96×96 lose the detail of ligaments and menisci (reduced to 1 or 2 blurry pixels).
+4. **Blind Slice Sampling:** Taking 3 fixed slices at the center ignores that lesions occur in specific slices depending on the medial, lateral or patellofemoral compartment.
+5. **Contaminated Pseudo-labels:** In `train.csv` only 58 studies have hard labels (98.7% unlabeled). Naive regular expressions marked phrases like *"no tear"* or *"unremarkable"* as positive ($0.70$), injecting massive noise.
 
 ---
 
-## 🏗️ Arquitectura de las Nuevas Metodologías
+## 🏗️ Architecture of the New Methodologies
 
 ```
                                   Knee MRI Study (DICOM series)
@@ -43,56 +43,56 @@ Al auditar los archivos descargados del kernel de Kaggle (`submission.csv` y log
  │ Notebook 1: Decomposed Radiomics Ensemble   │  │ Notebook 2: Adaptive 2.5D Vision + Prior    │
  │ (kaggle_rsna_knee_radiomics_ensemble.ipynb) │  │ (kaggle_rsna_knee_vision_25d.ipynb)         │
  ├─────────────────────────────────────────────┤  ├─────────────────────────────────────────────┤
- │ • Separación: Sagittal / Coronal / Axial    │  │ • Escaneo de Varianza y Entropía Tisular    │
- │ • Fluid_Sensitive vs T1 contrast ratios     │  │ • Selección Top-3 Cortes Relevantes / Plano │
- │ • Cuantiles P1 a P99 a resolución nativa    │  │ • Tensores 9 Canales a 224×224              │
- │ • NegEx Clinical Negation Parser            │  │ • Ponderación 5× para Hard Labels           │
- │ • Ensamble: HistGBCD + Ridge + ExtraTrees   │  │ • Conexión Residual Radiómica Anticolapso   │
- │ • Calibración Sigmoide (Platt Scaling)      │  │ • Inferencia Optimizada FP16                │
+ │ • Split: Sagittal / Coronal / Axial         │  │ • Tissue Variance and Entropy Scan          │
+ │ • Fluid_Sensitive vs T1 contrast ratios     │  │ • Top-3 Relevant Slices Selection / Plane   │
+ │ • P1 to P99 quantiles at native resolution  │  │ • 9-Channel Tensors at 224×224              │
+ │ • NegEx Clinical Negation Parser            │  │ • 5× Weighting for Hard Labels              │
+ │ • Ensemble: HistGBCD + Ridge + ExtraTrees   │  │ • Anti-Collapse Radiomic Residual Connection│
+ │ • Sigmoid Calibration (Platt Scaling)       │  │ • FP16 Optimized Inference                  │
  └──────────────────────┬──────────────────────┘  └──────────────────────┬──────────────────────┘
                         │                                                │
                         ▼                                                ▼
-         submission.csv (LB Objetivo >0.62)               submission.csv (LB Objetivo >0.65)
+         submission.csv (LB Target >0.62)                 submission.csv (LB Target >0.65)
 ```
 
 ---
 
-## 📁 Estructura del Directorio
+## 📁 Directory Structure
 
 ```text
 RSNA Knee Abnormality Detection/RSNA Knee Abnormality Detection/
-├── METHODOLOGIES.md                      # Especificación técnica exhaustiva de metodologías
-├── README.md                             # [ESTE ARCHIVO] Documentación principal y resumen
-├── EXPERIMENT_LOG.md                     # Bitácora detallada de experimentos y scores
-├── OVERVIEW.md                           # Resumen del overview oficial de Kaggle
-├── DATASET_DESCRIPTION.md                # Descripción técnica de archivos DICOM y metadatos
-├── kaggle_rsna_knee_radiomics_ensemble.ipynb # Notebook 1: Radiomics + Ensamble Calibrado (SOTA Tabular)
+├── METHODOLOGIES.md                      # Exhaustive technical specification of the methodologies
+├── README.md                             # [THIS FILE] Main documentation and summary
+├── EXPERIMENT_LOG.md                     # Detailed log of experiments and scores
+├── OVERVIEW.md                           # Summary of the official Kaggle overview
+├── DATASET_DESCRIPTION.md                # Technical description of DICOM files and metadata
+├── kaggle_rsna_knee_radiomics_ensemble.ipynb # Notebook 1: Radiomics + Calibrated Ensemble (Tabular SOTA)
 ├── kaggle_rsna_knee_vision_25d.ipynb     # Notebook 2: 2.5D Adaptive Vision + Residual Prior
-├── kaggle_rsna_knee_baseline.ipynb       # Notebook principal enlazado a kernel-metadata.json
-├── kernel-metadata.json                  # Metadatos del kernel de Kaggle
-├── src/rsna_knee/                        # Módulos Python empaquetados
-└── output/                               # Salidas e inferencias descargadas de Kaggle
+├── kaggle_rsna_knee_baseline.ipynb       # Main notebook linked to kernel-metadata.json
+├── kernel-metadata.json                  # Kaggle kernel metadata
+├── src/rsna_knee/                        # Packaged Python modules
+└── output/                               # Outputs and inferences downloaded from Kaggle
 ```
 
 ---
 
-## 🚀 Cómo Ejecutar y Monitorear
+## 🚀 How to Run and Monitor
 
-Desde la raíz del workspace (`Kaggle/`):
+From the workspace root (`Kaggle/`):
 
 ```powershell
-# 1. Verificar integridad y sintaxis de todos los notebooks
+# 1. Verify integrity and syntax of all notebooks
 python kaggle_manager.py verify
 
-# 2. Consultar cuota de GPU y estado de kernels
+# 2. Check GPU quota and kernel status
 python kaggle_manager.py status
 
-# 3. Enviar y monitorear ejecución en Kaggle GPU
+# 3. Submit and monitor the run on Kaggle GPU
 python kaggle_manager.py run rsna
 
-# 4. Descargar resultados y submission.csv
+# 4. Download results and submission.csv
 python kaggle_manager.py output rsna
 
-# 5. Consultar los últimos scores de Leaderboard
+# 5. Check the latest Leaderboard scores
 python kaggle_manager.py scores
 ```

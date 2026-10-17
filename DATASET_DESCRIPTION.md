@@ -1,63 +1,63 @@
-# 📊 RSNA Knee Abnormality Detection — Resumen del Dataset Description de Kaggle
+# 📊 RSNA Knee Abnormality Detection — Summary of the Kaggle Dataset Description
 
-**Competición:** [RSNA Knee Abnormality Detection AI Challenge](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection)
+**Competition:** [RSNA Knee Abnormality Detection AI Challenge](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection)
 
 ---
 
-## 1. 📁 Estructura General de Archivos
+## 1. 📁 General File Structure
 
 ```text
-├── train.csv                # Metadatos de estudios de entrenamiento, reportes clínicos y etiquetas
-├── test.csv                 # Metadatos de estudios del conjunto de prueba
-├── train_series.csv         # Metadatos de series DICOM (descripción, plano anatómico, ponderación)
-├── test_series.csv          # Metadatos de series DICOM para test
-├── sample_submission.csv    # Plantilla de predicción de 12 clases por StudyInstanceUID
-├── train_series/            # Árbol de archivos DICOM (.dcm) de entrenamiento
+├── train.csv                # Training study metadata, clinical reports and labels
+├── test.csv                 # Test set study metadata
+├── train_series.csv         # DICOM series metadata (description, anatomical plane, weighting)
+├── test_series.csv          # DICOM series metadata for test
+├── sample_submission.csv    # 12-class prediction template per StudyInstanceUID
+├── train_series/            # Training DICOM (.dcm) file tree
 │   └── {StudyInstanceUID}/
 │       └── {SeriesInstanceUID}/
 │           ├── 1.dcm
 │           └── ...
-└── test_series/             # Árbol de archivos DICOM (.dcm) de prueba
+└── test_series/             # Test DICOM (.dcm) file tree
 ```
 
 ---
 
-## 2. 📋 Detalle de Archivos Tabulares y Esquemas
+## 2. 📋 Tabular File Details and Schemas
 
-### A. `train.csv` y `test.csv`
-- **`StudyInstanceUID`** (`string`): Identificador único global de cada examen de resonancia magnética.
-- **`Report`** (`string`): Texto del reporte radiológico narrativo original.
+### A. `train.csv` and `test.csv`
+- **`StudyInstanceUID`** (`string`): Globally unique identifier of each MRI exam.
+- **`Report`** (`string`): Text of the original narrative radiology report.
   > [!WARNING]
-  > **Discrepancia Crítica de Test (Covariate Shift):** En `train.csv` existen reportes narrativos extensos, pero en `test.csv` la columna `Report` está **completamente vacía (`""`)**. Todo modelo que dependa de atajos textuales fallará en el test oculto a menos que aplique *text dropout* masivo y conexión residual visual pura.
-- **Columnas Objetivo (12 clases binarias, solo en train):**
+  > **Critical Test Discrepancy (Covariate Shift):** `train.csv` contains long narrative reports, but in `test.csv` the `Report` column is **completely empty (`""`)**. Any model that relies on textual shortcuts will fail on the hidden test unless it applies massive *text dropout* and a purely visual residual connection.
+- **Target Columns (12 binary classes, train only):**
   `ACL`, `MCL`, `Medial Meniscus`, `Lateral Meniscus`, `Medial OA`, `Lateral OA`, `PF OA`, `Effusion`, `Synovitis`, `Baker's`, `Contusion`, `Fracture`.
-  *(Valores: `1.0` presente, `0.0` ausente, o `NaN` si no fue evaluado específicamente en ese centro).*
+  *(Values: `1.0` present, `0.0` absent, or `NaN` if not specifically assessed at that center).*
 
-### B. `train_series.csv` y `test_series.csv`
-- **`StudyInstanceUID`** (`string`): ID del estudio.
-- **`SeriesInstanceUID`** (`string`): ID de la secuencia/serie específica dentro del examen.
-- **`SeriesDescription`** (`string`): Nombre técnico de la secuencia en el equipo (e.g. `SAG PD TSE`, `COR T2 FS`, `AXIAL T2`).
-- **`Plane`** (`string`): Orientación de corte anatómico (`Sagittal`, `Coronal`, `Axial`).
-- **`Fluid_Sensitive`** (`boolean` / `int`): Indicador de si la secuencia resalta líquido articular/edema (e.g. secuencias con supresión grasa STIR o T2 FS).
-- **`Fat_Suppression`** (`boolean` / `int`): Indicador de técnica de saturación grasa.
-
----
-
-## 3. 🖼️ Volúmenes de Imagen DICOM (`train_series/` y `test_series/`)
-- **Formato:** Archivos estándar DICOM (`.dcm`) con matrices de píxeles (típicamente $512 \times 512$ o $384 \times 384$) codificadas en 12 o 16 bits.
-- **Metadatos DICOM Relevantes:**
-  - `ImagePositionPatient` y `ImageOrientationPatient`: Geometría 3D espacial para ordenar los cortes a lo largo del eje perpendicular.
-  - `PixelSpacing` y `SliceThickness`: Calibración de resolución física en milímetros.
-  - `WindowCenter` y `WindowWidth`: Configuración de ventana de visualización radiológica.
+### B. `train_series.csv` and `test_series.csv`
+- **`StudyInstanceUID`** (`string`): Study ID.
+- **`SeriesInstanceUID`** (`string`): ID of the specific sequence/series within the exam.
+- **`SeriesDescription`** (`string`): Technical name of the sequence on the scanner (e.g. `SAG PD TSE`, `COR T2 FS`, `AXIAL T2`).
+- **`Plane`** (`string`): Anatomical slice orientation (`Sagittal`, `Coronal`, `Axial`).
+- **`Fluid_Sensitive`** (`boolean` / `int`): Indicator of whether the sequence highlights joint fluid/edema (e.g. fat-suppressed STIR or T2 FS sequences).
+- **`Fat_Suppression`** (`boolean` / `int`): Indicator of the fat-saturation technique.
 
 ---
 
-## 4. 📄 Formato del Archivo de Envío (`submission.csv`)
-El archivo de submission debe contener una fila por cada `StudyInstanceUID` del conjunto de test y predecir las probabilidades para los 12 objetivos:
+## 3. 🖼️ DICOM Image Volumes (`train_series/` and `test_series/`)
+- **Format:** Standard DICOM files (`.dcm`) with pixel matrices (typically $512 \times 512$ or $384 \times 384$) encoded in 12 or 16 bits.
+- **Relevant DICOM Metadata:**
+  - `ImagePositionPatient` and `ImageOrientationPatient`: 3D spatial geometry used to order the slices along the perpendicular axis.
+  - `PixelSpacing` and `SliceThickness`: Physical resolution calibration in millimeters.
+  - `WindowCenter` and `WindowWidth`: Radiological display window settings.
+
+---
+
+## 4. 📄 Submission File Format (`submission.csv`)
+The submission file must contain one row for each `StudyInstanceUID` in the test set and predict the probabilities for the 12 targets:
 
 ```csv
 StudyInstanceUID,ACL,MCL,Medial Meniscus,Lateral Meniscus,Medial OA,Lateral OA,PF OA,Effusion,Synovitis,Baker's,Contusion,Fracture
 1.2.826.0.1.3680043.10001,0.082,0.015,0.412,0.089,0.210,0.054,0.118,0.785,0.045,0.012,0.150,0.003
 1.2.826.0.1.3680043.10002,0.741,0.082,0.680,0.115,0.090,0.040,0.075,0.612,0.110,0.035,0.520,0.011
 ```
-Todas las probabilidades deben estar acotadas en el rango continuo $[0.0, 1.0]$.
+All probabilities must be bounded in the continuous range $[0.0, 1.0]$.
