@@ -43,3 +43,34 @@ For each study (`StudyInstanceUID`), the model must predict the continuous proba
 ## 4. 📏 Evaluation Metric
 - **Main Metric:** **Macro-averaged Area Under the ROC Curve (Macro AUC)** over the 12 multilabel targets.
 - Predictions are evaluated probabilistically per study against the gold-standard annotations agreed on by panels of expert radiologists.
+
+---
+
+## 5. ⚡ Efficiency Prize Track
+- Eligible submissions are those **selected for the main LB** (or auto-selected) that also rank above `sample_submission.csv` on the private LB.
+- The efficiency score combines the private-LB AUC (relative to the benchmark and the best AUC) with `RuntimeSeconds / 32400`. **Lower is better.** See the "Efficiency Prize Evaluation" section of the official Overview for the exact formula.
+- A public-LB efficiency ranking is published daily in the host's "Efficiency Leaderboard" notebook.
+
+---
+
+## 6. ⏱️ Code Requirements
+- Notebook submissions only. CPU or GPU **≤ 9 h**. **Internet disabled.**
+- Free, publicly available external data and pre-trained models are allowed.
+- Output file: `submission.csv`.
+
+---
+
+## 7. 🗓️ Timeline (23:59 UTC)
+| Date | Milestone |
+|---|---|
+| 2026-07-30 | Start |
+| 2026-10-15 | Entry + team merger deadline (passed) |
+| **2026-10-22** | **Final submission deadline** |
+| 2026-11-05 | Winners' Requirement Deadline (training code, video, method description) |
+
+---
+
+## 8. 🏆 Prizes ($77,000)
+- **Main LB:** $9k / $7k / $6.5k / $6k / $5.5k / $5k × 5.
+- **Efficiency track:** $7k / $6k / $5k.
+- Winners are invited to the RSNA AI Challenge Recognition Event. They must also record a short video, post their open-sourced code and weights on the forum, and publish the final model. See `RULES.md`.

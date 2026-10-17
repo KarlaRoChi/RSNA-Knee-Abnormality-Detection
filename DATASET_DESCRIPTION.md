@@ -8,7 +8,7 @@
 
 ```text
 ├── train.csv                # Training study metadata, clinical reports and labels
-├── test.csv                 # Test set study metadata
+├── test.csv                 # 3 example study IDs; ~1,300 studies at rerun (StudyInstanceUID only)
 ├── train_series.csv         # DICOM series metadata (description, anatomical plane, weighting)
 ├── test_series.csv          # DICOM series metadata for test
 ├── sample_submission.csv    # 12-class prediction template per StudyInstanceUID
@@ -25,21 +25,20 @@
 ## 2. 📋 Tabular File Details and Schemas
 
 ### A. `train.csv` and `test.csv`
-- **`StudyInstanceUID`** (`string`): Globally unique identifier of each MRI exam.
-- **`Report`** (`string`): Text of the original narrative radiology report.
-  > [!WARNING]
-  > **Critical Test Discrepancy (Covariate Shift):** `train.csv` contains long narrative reports, but in `test.csv` the `Report` column is **completely empty (`""`)**. Any model that relies on textual shortcuts will fail on the hidden test unless it applies massive *text dropout* and a purely visual residual connection.
-- **Target Columns (12 binary classes, train only):**
+- **`StudyInstanceUID`** (`string`): Unique study identifier. It matches the folder name under `train_series/`.
+- **`Report`** (`string`, **train only**): Free-text radiology report, in several languages depending on the institution. **It is not provided at test time**, so models must not depend on text at inference.
+- **Target columns (12 binary labels, train only):**
   `ACL`, `MCL`, `Medial Meniscus`, `Lateral Meniscus`, `Medial OA`, `Lateral OA`, `PF OA`, `Effusion`, `Synovitis`, `Baker's`, `Contusion`, `Fracture`.
-  *(Values: `1.0` present, `0.0` absent, or `NaN` if not specifically assessed at that center).*
+  > [!IMPORTANT]
+  > Only a **small subset** of training studies carries per-condition labels. The host provides the reports so that labels can be derived for the rest.
+- **`test.csv`** contains only `StudyInstanceUID`: 3 example studies in the visible copy, about **1,300** studies during scoring.
 
 ### B. `train_series.csv` and `test_series.csv`
-- **`StudyInstanceUID`** (`string`): Study ID.
-- **`SeriesInstanceUID`** (`string`): ID of the specific sequence/series within the exam.
-- **`SeriesDescription`** (`string`): Technical name of the sequence on the scanner (e.g. `SAG PD TSE`, `COR T2 FS`, `AXIAL T2`).
-- **`Plane`** (`string`): Anatomical slice orientation (`Sagittal`, `Coronal`, `Axial`).
-- **`Fluid_Sensitive`** (`boolean` / `int`): Indicator of whether the sequence highlights joint fluid/edema (e.g. fat-suppressed STIR or T2 FS sequences).
-- **`Fat_Suppression`** (`boolean` / `int`): Indicator of the fat-saturation technique.
+- **`StudyInstanceUID`** (`string`): Study the series belongs to.
+- **`SeriesInstanceUID`** (`string`): Series ID. It matches `train_series/<StudyInstanceUID>/<SeriesInstanceUID>/`.
+- **`Fluid_Sensitive`** (`0/1`): 1 if the sequence emphasizes fluid signal (T2, PD, STIR and similar).
+- **`Fat_Suppression`** (`0/1`): 1 if fat suppression is applied. It is often correlated with `Fluid_Sensitive` but not equivalent.
+- **`Anatomical_Plane`** (`string`): `Sagittal`, `Coronal` or `Axial`.
 
 ---
 
@@ -61,3 +60,11 @@ StudyInstanceUID,ACL,MCL,Medial Meniscus,Lateral Meniscus,Medial OA,Lateral OA,P
 1.2.826.0.1.3680043.10002,0.741,0.082,0.680,0.115,0.090,0.040,0.075,0.612,0.110,0.035,0.520,0.011
 ```
 All probabilities must be bounded in the continuous range $[0.0, 1.0]$.
+
+---
+
+## 5. ℹ️ Notes from the official data page
+- Studies come from a diverse international mix of sites, scanners and protocols. **Label prevalence is not guaranteed to match** across train, the public LB and the private LB.
+- Each `.dcm` is one slice. Series usually have 20–45 slices (median 30), with a long tail up to a few hundred.
+- Transfer syntaxes vary (Explicit and Implicit VR Little Endian, JPEG Lossless, JPEG 2000). Every DICOM is stripped to an allowlist of **86 metadata tags**.
+- Full dataset: about 820k files, **~570 GB**. License: subject to the competition rules and the RSNA MIRA license.
