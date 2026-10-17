@@ -1,130 +1,98 @@
-# RSNA Knee Abnormality Detection
+# 🩻 RSNA Knee Abnormality Detection — Multi-Planar Radiomics & 2.5D Vision
 
-Baseline reproducible para detectar doce anormalidades de rodilla a partir de
-estudios MRI y reportes radiológicos. El entrenamiento se ejecuta en Kaggle,
-donde el dataset está disponible como entrada sin descargar sus
-aproximadamente 570 GB al equipo local. No se incluyen datos clínicos, imágenes
-ni modelos generados en este repositorio.
+> **Competencia Kaggle:** [RSNA Knee Abnormality Detection AI Challenge](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection)  
+> **Organizador:** Radiological Society of North America (RSNA)  
+> **Premios:** $50,000 USD (Main Leaderboard) + $18,000 USD (Efficiency Track)  
+> **Fecha de Cierre:** 22 de Octubre de 2026 (¡6 días restantes!)  
+> **Métrica Oficial:** Macro-averaged ROC-AUC sobre 12 anormalidades patológicas  
+> **Hardware:** GPU T4x2 (1 slot) o CPU | Internet: Desactivado  
 
-## Estado actual
+---
 
-- Notebook de Kaggle creada y sincronizada.
-- Dataset detectado correctamente desde
-  `/kaggle/input/competitions/rsna-knee-abnormality-detection`.
-- Datos detectados: 4,407 estudios de entrenamiento, 3 estudios de prueba de
-  ejemplo y 24,371 series.
-- Entrenamiento en progreso en Kaggle: la extracción DICOM procesa
-  aproximadamente 1.19 estudios por segundo.
-- El entregable esperado es `submission.csv`, generado en
-  `/kaggle/working/submission.csv`.
+## 📈 Evolución Experimental, Estrategias y Scores
 
-## Etiquetas
+| Versión | Estrategia / Metodología Clave | Score LB | Causa Técnica del Resultado |
+|---|---|---|---|
+| **v2** | Extracción paralela ThreadPoolExecutor + cuantiles globales DICOM + Ridge L2 | **`0.546`** | Primer pipeline funcional libre de NaNs. Señal positiva moderada capturada por cuantiles de intensidad. |
+| **v5** | **Estadísticas de distribución DICOM a resolución nativa** (10 percentiles en 24 cortes) + Metadatos de secuencias + Regresión Logística L2 | **`0.572`** | 🏆 **Mejor Score Consolidado.** Los cuantiles de intensidad física en secuencias T2/STIR capturan edema y derrame sin sobreajuste de millones de parámetros. |
+| **v8** | **Red Neuronal Profunda 2.5D Multimodal** (EfficientNet-B4, 9 cortes fijos a 96×96, Modality Dropout, Focal Loss) | **`0.532`** | 🔻 **Desplome de -0.040.** Backbone sin pre-entrenamiento (`weights=None`), compresión destructiva (96×96), muestreo ciego de 3 cortes y pseudo-etiquetado con negaciones falsas. |
+| **v9 (Nueva)** | **Decomposed Anatomical Plane Radiomics & Multi-Engine Calibrated Ensemble** | **Objetivo >0.62** | 🚀 Descomposición de percentiles por plano (Sagital, Coronal, Axial), ratios de contraste líquido/grasa, NegEx clinical negation parser y ensamble GBCD + Ridge + ExtraTrees calibrado. |
+| **v10 (Nueva)**| **Adaptive-Entropy Multi-Planar 2.5D Vision with Residual Prior** | **Objetivo >0.65** | 🚀 Selección dinámica de cortes por varianza tisular, resolución completa 224×224, ponderación 5× en hard labels y conexión residual radiómica anticolapso. |
 
-El modelo produce probabilidades para:
+---
 
-`ACL`, `MCL`, `Medial Meniscus`, `Lateral Meniscus`, `Medial OA`, `Lateral OA`,
-`PF OA`, `Effusion`, `Synovitis`, `Baker's`, `Contusion` y `Fracture`.
+## 🔬 Diagnóstico Clínico y Radiológico: Por qué la v8 cayó a 0.532
 
-## Estructura
+Al auditar los archivos descargados del kernel de Kaggle (`submission.csv` y logs de la v8):
+1. **Colapso de Varianza:** En test, las probabilidades predichas para cada paciente resultaron casi constantes (e.g. `MCL` con media $0.423$ y desviación estándar de apenas $\pm 0.004$). En la métrica ROC-AUC, la ausencia de dispersión relativa colapsa el score a **~0.50** (azar puro).
+2. **Backbone sin pre-entrenar (`weights=None`):** Entrenar 19.3M parámetros desde cero en solo 12 épocas genera representaciones visuales que equivalen a ruido aleatorio no convergido.
+3. **Pérdida Crítica de Resolución (96×96):** Las resonancias nativas ($512 \times 512$) reducidas a 96×96 pierden el detalle de ligamentos y meniscos (reducidos a 1 o 2 píxeles borrosos).
+4. **Muestreo Ciego de Cortes:** Tomar 3 cortes fijos al centro ignora que las lesiones ocurren en cortes específicos según el compartimento medial, lateral o patelofemoral.
+5. **Pseudo-etiquetas contaminadas:** En `train.csv` solo 58 estudios tienen hard labels (98.7% sin etiquetas). Las expresiones regulares ingenuas marcaron frases como *"no tear"* o *"unremarkable"* como positivas ($0.70$), inyectando ruido masivo.
+
+---
+
+## 🏗️ Arquitectura de las Nuevas Metodologías
+
+```
+                                  Knee MRI Study (DICOM series)
+                                                │
+                ┌───────────────────────────────┴───────────────────────────────┐
+                ▼                                                               ▼
+ ┌─────────────────────────────────────────────┐  ┌─────────────────────────────────────────────┐
+ │ Notebook 1: Decomposed Radiomics Ensemble   │  │ Notebook 2: Adaptive 2.5D Vision + Prior    │
+ │ (kaggle_rsna_knee_radiomics_ensemble.ipynb) │  │ (kaggle_rsna_knee_vision_25d.ipynb)         │
+ ├─────────────────────────────────────────────┤  ├─────────────────────────────────────────────┤
+ │ • Separación: Sagittal / Coronal / Axial    │  │ • Escaneo de Varianza y Entropía Tisular    │
+ │ • Fluid_Sensitive vs T1 contrast ratios     │  │ • Selección Top-3 Cortes Relevantes / Plano │
+ │ • Cuantiles P1 a P99 a resolución nativa    │  │ • Tensores 9 Canales a 224×224              │
+ │ • NegEx Clinical Negation Parser            │  │ • Ponderación 5× para Hard Labels           │
+ │ • Ensamble: HistGBCD + Ridge + ExtraTrees   │  │ • Conexión Residual Radiómica Anticolapso   │
+ │ • Calibración Sigmoide (Platt Scaling)      │  │ • Inferencia Optimizada FP16                │
+ └──────────────────────┬──────────────────────┘  └──────────────────────┬──────────────────────┘
+                        │                                                │
+                        ▼                                                ▼
+         submission.csv (LB Objetivo >0.62)               submission.csv (LB Objetivo >0.65)
+```
+
+---
+
+## 📁 Estructura del Directorio
 
 ```text
-.
-├── src/rsna_knee/
-│   ├── config.py       # etiquetas y configuración
-│   ├── data.py         # lectura de CSV, DICOM y reportes
-│   ├── metrics.py      # macro ROC-AUC
-│   ├── model.py        # baseline multimodal TF-IDF + estadísticas MRI
-│   ├── train.py        # entrenamiento y validación
-│   └── predict.py      # creación de submission.csv
-├── kaggle_rsna_knee_baseline.ipynb # entrenamiento cloud y entregable
-├── tests/
-├── requirements.txt
-└── pyproject.toml
+RSNA Knee Abnormality Detection/RSNA Knee Abnormality Detection/
+├── METHODOLOGIES.md                      # Especificación técnica exhaustiva de metodologías
+├── README.md                             # [ESTE ARCHIVO] Documentación principal y resumen
+├── EXPERIMENT_LOG.md                     # Bitácora detallada de experimentos y scores
+├── OVERVIEW.md                           # Resumen del overview oficial de Kaggle
+├── DATASET_DESCRIPTION.md                # Descripción técnica de archivos DICOM y metadatos
+├── kaggle_rsna_knee_radiomics_ensemble.ipynb # Notebook 1: Radiomics + Ensamble Calibrado (SOTA Tabular)
+├── kaggle_rsna_knee_vision_25d.ipynb     # Notebook 2: 2.5D Adaptive Vision + Residual Prior
+├── kaggle_rsna_knee_baseline.ipynb       # Notebook principal enlazado a kernel-metadata.json
+├── kernel-metadata.json                  # Metadatos del kernel de Kaggle
+├── src/rsna_knee/                        # Módulos Python empaquetados
+└── output/                               # Salidas e inferencias descargadas de Kaggle
 ```
 
-## Instalación
+---
 
-```bash
-python -m venv .venv
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+## 🚀 Cómo Ejecutar y Monitorear
+
+Desde la raíz del workspace (`Kaggle/`):
+
+```powershell
+# 1. Verificar integridad y sintaxis de todos los notebooks
+python kaggle_manager.py verify
+
+# 2. Consultar cuota de GPU y estado de kernels
+python kaggle_manager.py status
+
+# 3. Enviar y monitorear ejecución en Kaggle GPU
+python kaggle_manager.py run rsna
+
+# 4. Descargar resultados y submission.csv
+python kaggle_manager.py output rsna
+
+# 5. Consultar los últimos scores de Leaderboard
+python kaggle_manager.py scores
 ```
-
-Para ejecución local, coloca los datos de Kaggle en `data/` respetando su
-estructura original. El dataset de la competencia contiene:
-
-```text
-train.csv
-train_series.csv
-train_series/<StudyInstanceUID>/<SeriesInstanceUID>/<SOPInstanceUID>.dcm
-test.csv
-test_series.csv
-test_series/<StudyInstanceUID>/<SeriesInstanceUID>/<SOPInstanceUID>.dcm
-sample_submission.csv
-```
-
-## Entrenamiento
-
-```bash
-python -m rsna_knee.train \
-  --train-csv data/train.csv \
-  --image-root data/train \
-  --output models/baseline.joblib
-```
-
-El CSV debe tener `StudyInstanceUID`, las doce columnas objetivo y, si existe,
-una columna de texto o una ruta al reporte. La extracción de imagen busca
-archivos DICOM dentro de una carpeta cuyo nombre coincide con
-`StudyInstanceUID`.
-
-## Predicción
-
-```bash
-python -m rsna_knee.predict \
-  --model models/baseline.joblib \
-  --test-csv data/test.csv \
-  --image-root data/test \
-  --output submission.csv
-```
-
-El resultado contiene el encabezado exigido por la competencia y valores
-acotados al intervalo `[0, 1]`.
-
-## Ejecución en Kaggle
-
-La notebook [kaggle_rsna_knee_baseline.ipynb](./kaggle_rsna_knee_baseline.ipynb)
-detecta automáticamente la carpeta de entrada de Kaggle, incluso cuando la
-ruta aparece bajo `/kaggle/input/competitions/`. Ejecuta las celdas en orden:
-
-1. Configuración e imports.
-2. Detección y carga de los CSV.
-3. Extracción de características DICOM y metadatos de series.
-4. TF-IDF y combinación de características.
-5. Entrenamiento de 12 regresiones logísticas.
-6. Predicción y creación de `submission.csv`.
-7. Guardado de `rsna_knee_baseline.joblib`.
-
-La notebook muestra el progreso cada 10 estudios, con velocidad y ETA. La
-extracción DICOM usa CPU; por eso el uso de GPU puede permanecer en 0% aunque
-la ejecución sea correcta. La GPU no acelera automáticamente `pydicom`,
-TF-IDF ni `LogisticRegression`.
-
-Al finalizar, descarga `submission.csv` desde los archivos de salida de Kaggle
-y utiliza **Submit to Competition**. La notebook debe ejecutarse con el
-dataset de la competencia agregado como entrada y sin Internet.
-
-## Validación
-
-```bash
-pytest
-```
-
-Este baseline está pensado como punto de partida auditable y CPU-friendly,
-no como una solución final de leaderboard. El test mostrado por Kaggle contiene
-solo tres estudios de ejemplo; durante la evaluación de la competencia será
-reemplazado por el conjunto de prueba real.
-
-Antes de usar cualquier resultado en un contexto clínico se requiere
-validación independiente, revisión radiológica, controles de privacidad y
-aprobación regulatoria aplicable.
