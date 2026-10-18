@@ -1,0 +1,17 @@
+{
+  "id": "rochikarla/rsna-knee-radiomics-ensemble",
+  "title": "RSNA Knee Radiomics Ensemble",
+  "code_file": "kaggle_rsna_knee_radiomics_ensemble.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": "true",
+  "enable_gpu": "false",
+  "enable_tpu": "false",
+  "enable_internet": "false",
+  "dataset_sources": [],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [],
+  "model_sources": []
+}
