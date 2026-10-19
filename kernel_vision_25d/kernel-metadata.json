@@ -1,0 +1,17 @@
+{
+  "id": "rochikarla/rsna-knee-abnormality-detection-vision-2-5d",
+  "title": "RSNA Knee Abnormality Detection - Vision 2.5D",
+  "code_file": "kaggle_rsna_knee_vision_25d.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "false",
+  "dataset_sources": [],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [],
+  "model_sources": []
+}
