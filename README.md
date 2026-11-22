@@ -1,45 +1,66 @@
-# RSNA Knee Abnormality Detection (Archived Competition)
+# 🦵 RSNA Knee Abnormality Detection (Kaggle 2026)
 
-**Competition Slug:** `rsna-knee-abnormality-detection`  
-**Lifecycle Status:** `ARCHIVED` (Competition closed on 2026-10-22)  
-**Governing Standard:** 🏆 100% Prize Eligibility First  
-**Physical Migration Status:** **MIGRATED WITH LEGACY JUNCTION** (Physical data resides here at canonical path; legacy junction active)
+> **Competition:** [RSNA Knee Abnormality Detection AI Challenge](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection) (closed 2026-10-22)
+> **Task:** predict 12 knee pathologies (ACL, meniscus, osteoarthritis, effusion, fracture…) from MRI studies
+> **Metric:** macro ROC-AUC over the 12 labels · **Constraints:** offline, ≤ 9 h GPU/CPU
 
----
+## Summary
 
-## 1. Competition Summary & Final Official Results
+The main difficulty: of the 4,407 training studies, **only 58 have expert labels**. The rest only have the free-text radiology report, and the report is **empty in the test set**. Any model must learn from images using noisy labels derived from text.
 
-- **Mission:** Multi-label classification of knee abnormalities from 2.5D MRI series.
-- **Final Leaderboard Rank:** 🏅 **1277 / 6299** teams (top 21%).
-- **Final Official Submissions (verified via Kaggle API snapshot 2026-10-25):**
-  - **100% Prize-Eligible Clean Room Reader:**  
-    - Kernel: `rochikarla/rsna-knee-convnext-clean-reader` (ref `57454547`).  
-    - Model: Apache 2.0 ConvNeXt-Tiny reader trained on report-derived soft labels (58 official gold-labelled studies excluded).  
-    - Official Score: **`0.926` Public LB / `0.913` Private LB**.  
-    - License: 100% prize-eligible under RSNA CC BY-NC 4.0 rules.
-  - **Public Blend (NOT PRIZE-ELIGIBLE):**  
-    - Kernel: `rochikarla/rsna-knee-public-blend` (ref `57315942`).  
-    - Official Score: **`0.958` Public LB / `0.942` Private LB**.  
-    - License Conflict: Forked from community blend containing non-commercial / unverified components; disqualified from prize collection.
+| Submission | Whose work | Public LB | Private LB |
+|---|---|:---:|:---:|
+| **Radiomics + multilingual NegEx (v11)** | **Mine, end to end** | **0.619** | **0.597** |
+| ConvNeXt 2.5D reader | Weights and training code by [`goodpjw2008`](https://www.kaggle.com/goodpjw2008) (Apache-2.0); my inference notebook + flip TTA | 0.926 | 0.913 |
+| Public blend | Fork of a public notebook by `goodpjw2008` (not prize-eligible) | 0.958 | 0.942 |
 
----
+The final leaderboard rank (**1277 / 6299**) comes from the public blend, not from my own model.
 
-## 2. Preserved Model Checkpoints & Datasets
+## My work: radiomics pipeline (`kernel_radiomics_ensemble/`)
 
-All required trained weights to reproduce the 100% prize-eligible clean-room reader are cataloged in [`../../00_WORKSPACE_ADMIN/inventories/preserved_model_artifacts.csv`](../../00_WORKSPACE_ADMIN/inventories/preserved_model_artifacts.csv) and staged under:
+Starting from a 0.546 baseline, I iterated on a CPU-only pipeline (about 15 min per run):
 
-- `90_SCRATCH/rsna/kaggle_dataset_staging/convnext_reader/cnxt_v0_fold0.pt` (123.04 MB, SHA-256 `0b64baa9...`)
-- `90_SCRATCH/rsna/kaggle_dataset_staging/convnext_reader/cnxt_v0_fold1.pt` (123.04 MB, SHA-256 `61696b6e...`)
-- `90_SCRATCH/rsna/kaggle_dataset_staging/convnext_reader/cnxt_v0_fold2.pt` (123.04 MB, SHA-256 `f5cf19cf...`)
-- Dataset Metadata: `90_SCRATCH/rsna/kaggle_dataset_metadata/meta_rsna-knee-2-5d-convnext-reader/dataset-metadata.json` (`goodpjw2008/rsna-knee-2-5d-convnext-reader`, datasetId 12371725, Apache 2.0).
+1. **Label extraction from reports:** a regex parser with **NegEx-style negation handling** in five languages (EN/ES/PT/IT/FR). My first version marked sentences like *"no evidence of ACL tear"* as positive, which poisoned the labels.
+2. **Per-plane radiomics:** studies are split into sagittal, coronal and axial planes and fluid-sensitive vs. T1 sequences, giving more than 100 descriptors in total: intensity quantiles, skewness, kurtosis, center-vs-periphery gradients and T2/T1 contrast.
+3. **Calibrated ensemble:** HistGradientBoosting, logistic regression, Ridge and ExtraTrees with Platt calibration, plus a 5-fold out-of-fold teacher trained on the reports.
 
----
+| Version | Change | Public LB |
+|---|---|:---:|
+| v2 | DICOM quantiles + Ridge | 0.546 |
+| v5 | Native-resolution quantiles + series metadata | 0.572 |
+| v9–v10 | Per-plane radiomics + calibrated ensemble | 0.575 |
+| v11 | Multilingual NegEx teacher + 3D ROI radiomics | **0.619** |
 
-## 3. Physical Relocation & Virtual Environment Verification
+## What did not work (and why)
 
-- **Canonical Path:** `D:\PROYECTOS LATEX y otros\Kaggle\01_COMPETITIONS\ARCHIVE\RSNA-Knee\`
-- **Legacy Compatibility Junction:** `D:\PROYECTOS LATEX y otros\Kaggle\RSNA Knee Abnormality Detection\RSNA Knee Abnormality Detection\` <<===>> `D:\PROYECTOS LATEX y otros\Kaggle\01_COMPETITIONS\ARCHIVE\RSNA-Knee\`
-- **Virtual Environment Verification:** Tested on 2026-10-25:
-  - `python.exe -V`: Succeeded (Python 3.14.7) via both legacy junction and canonical path.
-  - `pip.exe -V`: Succeeded (pip 26.2.1 from `01_COMPETITIONS/ARCHIVE/RSNA-Knee/.venv/Lib/site-packages/pip`) via both paths.
-- **Orchestrator Targets:** `kaggle_manager.py` (aliases `rsna`, `rsna_radiomics`, `rsna_convnext_clean`, `rsna_vision`) verified 100% operational.
+- **EfficientNet-B4 trained from scratch (v3, v4, v8):** Kaggle has no internet access, so pretrained weights could not be downloaded. Training from scratch at 96×96 collapsed the predictions to an almost constant value (0.532).
+- **Adaptive 2.5D vision model (v10):** re-reading the DICOMs every epoch took about 1.3 h per epoch, beyond the time limit. Cancelled.
+
+## Lessons
+
+The gap between my 0.619 and the 0.93–0.96 of the public models comes from **pretrained weights and properly trained 2.5D readers**, which I could not reproduce within the time and compute I had. I also spent time verifying the **licenses** of each public resource, because the prize rules excluded models with non-commercial or unverified weights.
+
+## Repository
+
+```text
+kernel_radiomics_ensemble/   my radiomics + NegEx pipeline (main work)
+kernel_convnext_clean/       inference notebook for goodpjw2008's ConvNeXt reader
+kernel_public_blend/         fork of the public blend (reference only)
+kernel_vision_25d/           cancelled 2.5D vision attempt
+src/rsna_knee/, tests/       first TF-IDF + image-feature baseline (Python package)
+EXPERIMENT_LOG.md            every version with its CV and LB
+METHODOLOGIES.md             problem analysis and design notes
+```
+
+The notebooks run on Kaggle with the competition data attached. To push one with the [Kaggle CLI](https://github.com/Kaggle/kaggle-api):
+
+```bash
+kaggle kernels push -p kernel_radiomics_ensemble
+```
+
+Local baseline and tests:
+
+```bash
+pip install -r requirements.txt
+pytest tests
+```
