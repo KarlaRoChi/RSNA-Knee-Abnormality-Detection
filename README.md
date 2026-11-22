@@ -10,6 +10,7 @@
 ## 1. Competition Summary & Final Official Results
 
 - **Mission:** Multi-label classification of knee abnormalities from 2.5D MRI series.
+- **Final Leaderboard Rank:** 🏅 **1277 / 6299** teams (top 21%).
 - **Final Official Submissions (verified via Kaggle API snapshot 2026-10-25):**
   - **100% Prize-Eligible Clean Room Reader:**  
     - Kernel: `rochikarla/rsna-knee-convnext-clean-reader` (ref `57454547`).  
